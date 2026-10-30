@@ -151,30 +151,32 @@
         <div class="grid2">
           <label>Orientación fachada (°)<input type="number" step="0.5" min="0" max="360" data-path="facade.azimuth" /><small id="az-name"></small></label>
           <label>Separación con enfrente (m)<input type="number" step="0.1" min="0.5" data-path="street.separation" /></label>
-          <label>Altura edificio enfrente (m)<input type="number" step="0.1" min="0" data-path="street.oppositeHeight" /></label>
-          <label>Altura edificio propio (m)<input type="number" step="0.1" min="2" data-path="facade.buildingHeight" /></label>
+          <label>Altura edificio enfrente (m)<input type="number" step="0.1" min="0" data-path="street.oppositeHeight" /><small>cota máxima desde la calle</small></label>
+          <label>Altura edificio propio (m)<input type="number" step="0.1" min="2" data-path="facade.buildingHeight" /><small>desde la calle</small></label>
           <label>Grosor del muro (m)<input type="number" step="0.01" min="0" max="1" data-path="facade.wallThickness" /></label>
         </div>
       </details>
 
       <details open>
-        <summary>Ventana y local</summary>
+        <summary>Habitación y ventana</summary>
         <div class="grid2">
-          <label>Altura de la ventana (m)<input type="number" step="0.05" min="0.5" data-path="room.windowHeight" /></label>
-          <label>Altura del antepecho (m)<input type="number" step="0.05" min="0" data-path="room.sillHeight" /></label>
+          <label>Cota del suelo sobre la calle (m)<input type="number" step="0.05" min="0" data-path="room.floorElevation" /><small>0 = planta baja</small></label>
+          <label>Altura libre interior (m)<input type="number" step="0.05" min="2" data-path="room.ceilingHeight" /><small>suelo → techo</small></label>
+          <label>Ventana desde (m)<input type="number" step="0.05" min="0" data-path="room.sillHeight" /><small>sobre el suelo; 0 = desde el suelo</small></label>
+          <label>Ventana hasta (m)<input type="number" step="0.05" min="0.5" data-path="room.windowHeight" /><small>sobre el suelo (dintel)</small></label>
           <label>Ancho de la ventana (m)<input type="number" step="0.1" min="0.3" data-path="room.windowWidth" /></label>
-          <label>Altura del techo (m)<input type="number" step="0.05" min="2" data-path="room.ceilingHeight" /></label>
-          <label>Fondo del local (m)<input type="number" step="0.5" min="1" data-path="room.depth" /></label>
-          <label>Ancho del local (m)<input type="number" step="0.1" min="1" data-path="room.width" /></label>
+          <label>Ancho de la habitación (m)<input type="number" step="0.1" min="1" data-path="room.width" /></label>
+          <label>Fondo de la habitación (m)<input type="number" step="0.5" min="1" data-path="room.depth" /></label>
           <label>Transmitancia del vidrio<input type="number" step="0.01" min="0" max="1" data-path="room.glassTransmittance" /></label>
         </div>
+        <p class="hint" id="room-geo"></p>
       </details>
 
       <details open>
         <summary>Toldo exterior</summary>
         <label class="check"><input type="checkbox" data-path="awning.enabled" /> Toldo desplegado</label>
         <div class="range-field">
-          <span>Altura de anclaje</span>
+          <span>Altura de anclaje (sobre el suelo)</span>
           <input type="range" min="1" max="8" step="0.05" data-path="awning.mountHeight" />
           <input type="number" step="0.05" data-path="awning.mountHeight" /><em>m</em>
         </div>

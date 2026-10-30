@@ -214,7 +214,8 @@ export class SectionScene {
     const S = street.separation;
     const Hw = Math.min(room.windowHeight, room.ceilingHeight);
     const Hc = room.ceilingHeight;
-    const Hb = Math.max(facade.buildingHeight, Hc + 0.3);
+    const E = room.floorElevation; // la calle está en y = −E
+    const Hb = Math.max(facade.buildingHeight - E, Hc + 0.3); // coronación del edificio propio
     const Ww = room.windowWidth;
     const Wr = Math.max(room.width, Ww);
     const D = room.depth;
@@ -225,18 +226,18 @@ export class SectionScene {
 
     // Calle y aceras
     const xOpp = -t - S;
-    this.box(xOpp - 14, -t, -0.3, 0, -L, L, M.asphalt, { cast: false });
-    this.box(-t - Math.min(1.8, S / 3), -t, 0, 0.005, -L, L, M.sidewalk, { cast: false, edges: false });
-    this.box(xOpp, xOpp + Math.min(1.8, S / 3), 0, 0.005, -L, L, M.sidewalk, { cast: false, edges: false });
+    this.box(xOpp - 14, -t, -E - 0.3, -E, -L, L, M.asphalt, { cast: false });
+    this.box(-t - Math.min(1.8, S / 3), -t, -E, -E + 0.005, -L, L, M.sidewalk, { cast: false, edges: false });
+    this.box(xOpp, xOpp + Math.min(1.8, S / 3), -E, -E + 0.005, -L, L, M.sidewalk, { cast: false, edges: false });
 
-    // Edificio de enfrente
-    if (street.oppositeHeight > 0) this.box(xOpp - 12, xOpp, 0, street.oppositeHeight, -L, L, M.opposite);
+    // Edificio de enfrente (su cota máxima se mide desde la calle)
+    if (street.oppositeHeight > 0) this.box(xOpp - 12, xOpp, -E, street.oppositeHeight - E, -L, L, M.opposite);
 
     // Fachada propia con el hueco de la ventana
-    this.box(-t, 0, 0, Hb, -L, -Ww / 2, M.facade);
-    this.box(-t, 0, 0, Hb, Ww / 2, L, M.facade);
+    this.box(-t, 0, -E, Hb, -L, -Ww / 2, M.facade);
+    this.box(-t, 0, -E, Hb, Ww / 2, L, M.facade);
     this.box(-t, 0, Hw, Hb, -Ww / 2, Ww / 2, M.facade);
-    if (room.sillHeight > 0) this.box(-t, 0, 0, room.sillHeight, -Ww / 2, Ww / 2, M.facade);
+    if (room.sillHeight + E > 0) this.box(-t, 0, -E, room.sillHeight, -Ww / 2, Ww / 2, M.facade);
 
     // Vidrio (no proyecta sombra; la transmitancia se aplica en los cálculos)
     this.box(-0.04, -0.01, room.sillHeight, Hw, -Ww / 2, Ww / 2, M.glass, { cast: false, receive: false });
@@ -248,6 +249,7 @@ export class SectionScene {
     this.box(0, D, 0, Hc, -wr, -Wr / 2, M.interiorWall);
     this.box(0, D, 0, Hc, Wr / 2, wr, M.interiorWall);
     if (Hb > Hc + 0.3) this.box(0, D + 0.2, Hc + 0.3, Hb, -wr, wr, M.building);
+    if (E > 0.3) this.box(0, D + 0.2, -E, -0.3, -wr, wr, M.building); // plantas inferiores
 
     // Toldo
     if (awning.enabled && awning.length > 0 && awning.width > 0) {
@@ -297,15 +299,20 @@ export class SectionScene {
     const lInt = label('INTERIOR', 'zone');
     lInt.position.set(D / 2, Hc - 0.45, this.zCut);
     const lOpp = label(`Edificio enfrente · ${street.oppositeHeight} m`, 'small');
-    lOpp.position.set(xOpp - 3, street.oppositeHeight + 0.6, this.zCut);
+    lOpp.position.set(xOpp - 3, street.oppositeHeight - E + 0.6, this.zCut);
     const lSep = label(`↔ ${S} m`, 'small');
-    lSep.position.set(-t - S / 2, 0.35, this.zCut);
+    lSep.position.set(-t - S / 2, -E + 0.35, this.zCut);
+    if (E > 0) {
+      const lElev = label(`Suelo a ${E} m sobre la calle`, 'small');
+      lElev.position.set(D / 2, -0.45, this.zCut);
+      this.world.add(lElev);
+    }
     this.world.add(lExt, lInt, lSep);
     if (street.oppositeHeight > 0) this.world.add(lOpp);
 
     // Cámara de sombras y encuadre
-    this.center = new THREE.Vector3((xOpp - 4 + D) / 2, Math.max(Hb, street.oppositeHeight) / 2, 0);
-    this.shadowRadius = Math.max(25, (S + D + 30) * 0.75);
+    this.center = new THREE.Vector3((xOpp - 4 + D) / 2, Math.max(Hb + E, street.oppositeHeight) / 2 - E, 0);
+    this.shadowRadius = Math.max(25, (S + D + 30 + E) * 0.75);
     const sc = this.sun.shadow.camera;
     sc.left = sc.bottom = -this.shadowRadius;
     sc.right = sc.top = this.shadowRadius;
@@ -321,7 +328,7 @@ export class SectionScene {
     if (!this.cfg) return;
     const { street, room, facade } = this.cfg;
     const width = facade.wallThickness + street.separation + 6 + room.depth;
-    const height = Math.max(facade.buildingHeight, street.oppositeHeight) + 2;
+    const height = Math.max(facade.buildingHeight, room.floorElevation + room.ceilingHeight + 0.3, street.oppositeHeight) + 2;
     const fov = THREE.MathUtils.degToRad(this.camera.fov);
     const distH = height / 2 / Math.tan(fov / 2);
     const distW = width / 2 / Math.tan(fov / 2) / this.camera.aspect;

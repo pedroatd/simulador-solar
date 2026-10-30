@@ -46,7 +46,7 @@ function loadConfig() {
   } catch {
     cfg = cloneConfig(DEFAULT_CONFIG);
   }
-  // ?lat=28.48&lon=-16.31&az=180&sep=8&hopp=12&hwin=3&tz=Atlantic/Canary
+  // ?lat=28.48&lon=-16.31&az=180&sep=8&hopp=12&hwin=3&elev=0&tz=Atlantic/Canary
   const q = new URLSearchParams(location.search);
   const num = (k, setter) => {
     const v = parseFloat(q.get(k));
@@ -58,6 +58,7 @@ function loadConfig() {
   num('sep', (v) => (cfg.street.separation = v));
   num('hopp', (v) => (cfg.street.oppositeHeight = v));
   num('hwin', (v) => (cfg.room.windowHeight = v));
+  num('elev', (v) => (cfg.room.floorElevation = v));
   if (q.get('tz')) cfg.location.tz = q.get('tz');
   return cfg;
 }
@@ -147,6 +148,7 @@ function writeFields() {
 
 function validate(cfg) {
   const r = cfg.room;
+  r.floorElevation = Math.max(0, r.floorElevation);
   r.ceilingHeight = Math.max(2, r.ceilingHeight);
   r.windowHeight = Math.min(Math.max(0.3, r.windowHeight), r.ceilingHeight);
   r.sillHeight = Math.min(Math.max(0, r.sillHeight), r.windowHeight - 0.2);
@@ -157,7 +159,7 @@ function validate(cfg) {
   cfg.street.separation = Math.max(0.5, cfg.street.separation);
   cfg.street.oppositeHeight = Math.max(0, cfg.street.oppositeHeight);
   cfg.facade.azimuth = ((cfg.facade.azimuth % 360) + 360) % 360;
-  cfg.facade.buildingHeight = Math.max(r.ceilingHeight + 0.3, cfg.facade.buildingHeight);
+  cfg.facade.buildingHeight = Math.max(r.floorElevation + r.ceilingHeight + 0.3, cfg.facade.buildingHeight);
   cfg.facade.wallThickness = Math.min(1, Math.max(0, cfg.facade.wallThickness));
   const a = cfg.awning;
   a.angle = Math.min(90, Math.max(0, a.angle));
@@ -191,10 +193,18 @@ function configChanged({ live = false } = {}) {
   const c = state.cfg;
   $('az-name').textContent = `La fachada mira al ${AZ_NAMES[Math.round(c.facade.azimuth / 22.5) % 16]}`;
   const sec = awningSection(c);
+  const E = c.room.floorElevation;
+  const fmtM = (v) => `${+v.toFixed(2)} m`;
   $('awning-geo').textContent = c.awning.enabled
     ? `Vuelo horizontal ${(-sec.tip.x - c.facade.wallThickness).toFixed(2)} m · borde inferior a ${sec.tip.y.toFixed(2)} m del suelo` +
-      (sec.tip.y < 2.2 ? ' — ¡ojo, por debajo de 2,2 m!' : '')
+      (E > 0 ? ` (${(sec.tip.y + E).toFixed(2)} m sobre la calle)` : '') +
+      (sec.tip.y + E < 2.2 ? ' — ¡ojo, por debajo de 2,2 m sobre la acera!' : '')
     : 'Toldo recogido.';
+  const r = c.room;
+  $('room-geo').textContent =
+    `Ventana de ${fmtM(r.windowHeight - r.sillHeight)} de alto` +
+    (r.sillHeight === 0 && r.windowHeight === r.ceilingHeight ? ' (de suelo a techo)' : '') +
+    `, entre ${fmtM(E + r.sillHeight)} y ${fmtM(E + r.windowHeight)} sobre la calle.`;
   const days = daysInYear(c.location.year);
   $('day').max = days;
   state.doy = Math.min(state.doy, days);

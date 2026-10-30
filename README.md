@@ -44,7 +44,9 @@ Las pruebas del modelo están en `http://localhost:8765/tests.html`.
 - Posición solar: algoritmo NOAA. Hora civil por zona IANA (con horario de verano) u hora solar media.
 - Irradiancia directa de cielo despejado (Meinel + masa de aire de Kasten-Young). Sin difusa ni reflejada.
 - Edificio de enfrente: plano vertical continuo, paralelo a la fachada, de altura constante.
-- La calle está a la cota del suelo del local.
+- La habitación puede estar en cualquier planta: su suelo está a `floorElevation` metros sobre la calle.
+  Las alturas de los edificios se miden desde la calle; las de la ventana ("desde"/"hasta"), el techo y el
+  anclaje del toldo, desde el suelo de la habitación.
 - Se tiene en cuenta el grosor del muro (jambas y dintel), el toldo como rectángulo plano centrado en la
   ventana y la transmitancia del vidrio.
 - `azimuth` de fachada = dirección hacia la que mira la fachada (normal exterior), en grados desde el norte.

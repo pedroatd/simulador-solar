@@ -70,6 +70,15 @@
     r = computeInstant(ob, s45, 800, { ny: 300, nz: 5 });
     check('Edificio de enfrente: fracción soleada 1/3', r.litFraction, 1 / 3, 0.01);
 
+    // Habitación en una planta alta: el edificio de enfrente se ve 3 m más bajo
+    const up = cloneConfig(ob);
+    up.room.floorElevation = 3;
+    r = computeInstant(up, s45, 800, { ny: 300, nz: 5 });
+    check('Suelo a 3 m: edificio de 12 m ya no tapa (perfil 45°, 10 m)', r.litFraction, 1, 1e-9);
+    up.street.oppositeHeight = 15;
+    r = computeInstant(up, s45, 800, { ny: 300, nz: 5 });
+    check('Suelo a 3 m, edificio de 15 m: fracción soleada 1/3', r.litFraction, 1 / 3, 0.01);
+
     // Toldo horizontal a 3,2 m con 1 m de vuelo → sombra para y ≥ 2,2
     const aw = cloneConfig(base);
     Object.assign(aw.awning, { enabled: true, mountHeight: 3.2, angle: 0, length: 1, width: 50, transmittance: 0 });

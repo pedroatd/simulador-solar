@@ -3,7 +3,7 @@
 //
 // Sistema de coordenadas local (metros), el mismo que la escena 3D:
 //   x: perpendicular a la fachada, positivo hacia el INTERIOR (derecha en la vista de canto)
-//   y: vertical, 0 = suelo del local = cota de la calle
+//   y: vertical, 0 = suelo de la habitación; la calle está en y = −room.floorElevation
 //   z: horizontal a lo largo de la fachada (x × y), 0 = centro de la ventana
 // La cara interior del vidrio está en x = 0 y la cara exterior del muro en x = −grosor.
 
@@ -26,17 +26,18 @@ export const DEFAULT_CONFIG = {
     oppositeHeight: 9, // cota máxima del edificio de enfrente (m) respecto a la calle
   },
   room: {
-    windowHeight: 3, // altura del dintel (m)
-    sillHeight: 0, // 0 = ventana de suelo a techo
+    floorElevation: 0, // cota del suelo de la habitación sobre la calle (m); 0 = planta baja
+    ceilingHeight: 3, // altura libre interior (m)
+    sillHeight: 0, // la ventana empieza a esta altura sobre el suelo (0 = de suelo a techo)
+    windowHeight: 3, // la ventana termina a esta altura sobre el suelo (dintel)
     windowWidth: 3,
-    ceilingHeight: 3,
     depth: 10,
     width: 5,
     glassTransmittance: 0.8,
   },
   awning: {
     enabled: true,
-    mountHeight: 3.2, // altura del eje de giro sobre la calle (m)
+    mountHeight: 3.2, // altura del eje de giro sobre el suelo de la habitación (m)
     angle: 20, // grados por debajo de la horizontal (0 = horizontal, 90 = colgando vertical)
     length: 2.5, // longitud del brazo/tela desplegada (m)
     width: 3.5, // ancho a lo largo de la fachada (m)
@@ -110,10 +111,10 @@ export function traceRay(cfg, s, y, z, useAwning = true) {
     return res;
   }
 
-  // 2) Edificio de enfrente (plano vertical infinito a lo largo de la calle)
+  // 2) Edificio de enfrente (plano vertical infinito a lo largo de la calle); su cota se mide desde la calle
   const kb = (t + street.separation) / dx;
   const yb = y + kb * s.y;
-  if (yb < street.oppositeHeight) {
+  if (yb < street.oppositeHeight - room.floorElevation) {
     res.blockedBy = 'edificio';
     res.block = { x: -t - street.separation, y: yb, z: z + kb * s.z };
     return res;
