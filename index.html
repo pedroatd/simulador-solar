@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Simulador solar de escaparate</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <h1>Simulador solar de escaparate</h1>
+    <div class="topbar-actions">
+      <button id="btn-share" class="primary" title="Copia un enlace que abre la web con esta configuración, día y hora">Copiar enlace</button>
+      <button id="btn-export" class="ghost">Exportar JSON</button>
+      <label class="ghost button">Importar JSON<input id="file-import" type="file" accept="application/json" hidden /></label>
+      <button id="btn-reset" class="ghost">Restablecer</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <main class="stage">
+      <div id="viewport" class="viewport">
+        <div class="readout" id="readout"></div>
+        <div class="view-buttons">
+          <button data-view="section">Vista de canto</button>
+          <button data-view="3d">Vista 3D</button>
+          <select id="cut-mode" title="Plano de corte de la sección">
+            <option value="center">Corte por el centro de la ventana</option>
+            <option value="full">Ver el local completo</option>
+          </select>
+        </div>
+        <div class="legend-rays">
+          <span><i class="sw sw-lit"></i>Rayo directo</span>
+          <span><i class="sw sw-in"></i>Luz que entra</span>
+          <span><i class="sw sw-shade"></i>Rayo bloqueado</span>
+          <span><i class="sw sw-depth"></i>Penetración máx.</span>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="slider-row">
+          <label for="hour">Hora</label>
+          <input id="hour" type="range" min="0" max="1435" step="5" />
+          <output id="hour-out"></output>
+        </div>
+        <div class="slider-row">
+          <label for="day">Día del año</label>
+          <div class="day-wrap">
+            <input id="day" type="range" min="1" max="365" step="1" />
+            <div class="month-ticks" id="month-ticks"></div>
+          </div>
+          <output id="day-out"></output>
+        </div>
+        <div class="slider-row playback">
+          <button id="play" class="primary" aria-label="Reproducir">▶</button>
+          <label for="speed">Velocidad</label>
+          <input id="speed" type="range" min="0" max="100" step="1" value="45" />
+          <output id="speed-out"></output>
+          <select id="play-mode">
+            <option value="hours">Avanzar horas (y días)</option>
+            <option value="days">Hora fija, avanzar días</option>
+          </select>
+          <label class="check"><input id="skip-night" type="checkbox" checked /> Saltar noches</label>
+        </div>
+      </div>
+
+      <section class="analysis">
+        <div class="analysis-head">
+          <h2>Análisis anual</h2>
+          <div class="analysis-filters">
+            <select id="metric">
+              <option value="power">Potencia solar directa que entra (W)</option>
+              <option value="depth">Penetración en el suelo (m)</option>
+              <option value="frac">Ventana soleada (%)</option>
+            </select>
+            <select id="scenario">
+              <option value="A">Con toldo</option>
+              <option value="N">Sin toldo</option>
+              <option value="D">Reducción por el toldo</option>
+            </select>
+            <span id="annual-status" class="muted"></span>
+          </div>
+        </div>
+        <div class="tiles" id="tiles"></div>
+        <div class="charts">
+          <figure class="chart">
+            <figcaption>Mapa anual (día × hora) — pulsa para ir a ese instante</figcaption>
+            <div class="canvas-wrap"><canvas id="heatmap"></canvas><div class="tooltip" id="tt-heat"></div></div>
+            <div class="scale" id="heat-scale"></div>
+          </figure>
+          <figure class="chart">
+            <figcaption id="daily-caption">Día seleccionado</figcaption>
+            <div class="chart-legend">
+              <span><i class="sw sw-none"></i>Sin toldo</span>
+              <span><i class="sw sw-with"></i>Con toldo</span>
+            </div>
+            <div class="canvas-wrap"><canvas id="daily"></canvas><div class="tooltip" id="tt-daily"></div></div>
+          </figure>
+        </div>
+        <p class="note">Irradiancia directa de cielo despejado (modelo de Meinel); no incluye la radiación difusa ni la reflejada. El edificio de enfrente se modela como un plano continuo paralelo a la fachada.</p>
+      </section>
+    </main>
+
+    <aside class="sidebar">
+      <details open>
+        <summary>Ubicación</summary>
+        <form id="search-form" class="search">
+          <input id="search" type="search" placeholder="Buscar dirección…" />
+          <button type="submit">Buscar</button>
+        </form>
+        <div id="map" class="map"></div>
+        <p class="hint">Pulsa sobre la fachada del local. Arrastra el punto rojo para orientar la normal exterior. La línea azul discontinua es la fachada de enfrente.</p>
+        <button id="btn-detect" class="primary wide">Detectar fachada y edificio de enfrente (OSM)</button>
+        <p id="map-status" class="status"></p>
+        <div class="grid2">
+          <label>Latitud (°)<input type="number" step="0.000001" data-path="location.lat" /></label>
+          <label>Longitud (°)<input type="number" step="0.000001" data-path="location.lon" /></label>
+          <label>Zona horaria
+            <select data-path="location.tz">
+              <option value="Atlantic/Canary">Atlantic/Canary</option>
+              <option value="Europe/Madrid">Europe/Madrid</option>
+              <option value="Europe/Lisbon">Europe/Lisbon</option>
+              <option value="Europe/London">Europe/London</option>
+              <option value="Europe/Paris">Europe/Paris</option>
+              <option value="America/Mexico_City">America/Mexico_City</option>
+              <option value="America/Bogota">America/Bogota</option>
+              <option value="America/Lima">America/Lima</option>
+              <option value="America/Santiago">America/Santiago</option>
+              <option value="America/Argentina/Buenos_Aires">America/Buenos_Aires</option>
+              <option value="America/New_York">America/New_York</option>
+              <option value="UTC">UTC</option>
+              <option value="SOLAR">Hora solar media</option>
+            </select>
+          </label>
+          <label>Año<input type="number" step="1" min="1950" max="2100" data-path="location.year" /></label>
+        </div>
+      </details>
+
+      <details open>
+        <summary>Fachada y calle</summary>
+        <div class="grid2">
+          <label>Orientación fachada (°)<input type="number" step="0.5" min="0" max="360" data-path="facade.azimuth" /><small id="az-name"></small></label>
+          <label>Separación con enfrente (m)<input type="number" step="0.1" min="0.5" data-path="street.separation" /></label>
+          <label>Altura edificio enfrente (m)<input type="number" step="0.1" min="0" data-path="street.oppositeHeight" /></label>
+          <label>Altura edificio propio (m)<input type="number" step="0.1" min="2" data-path="facade.buildingHeight" /></label>
+          <label>Grosor del muro (m)<input type="number" step="0.01" min="0" max="1" data-path="facade.wallThickness" /></label>
+        </div>
+      </details>
+
+      <details open>
+        <summary>Ventana y local</summary>
+        <div class="grid2">
+          <label>Altura de la ventana (m)<input type="number" step="0.05" min="0.5" data-path="room.windowHeight" /></label>
+          <label>Altura del antepecho (m)<input type="number" step="0.05" min="0" data-path="room.sillHeight" /></label>
+          <label>Ancho de la ventana (m)<input type="number" step="0.1" min="0.3" data-path="room.windowWidth" /></label>
+          <label>Altura del techo (m)<input type="number" step="0.05" min="2" data-path="room.ceilingHeight" /></label>
+          <label>Fondo del local (m)<input type="number" step="0.5" min="1" data-path="room.depth" /></label>
+          <label>Ancho del local (m)<input type="number" step="0.1" min="1" data-path="room.width" /></label>
+          <label>Transmitancia del vidrio<input type="number" step="0.01" min="0" max="1" data-path="room.glassTransmittance" /></label>
+        </div>
+      </details>
+
+      <details open>
+        <summary>Toldo exterior</summary>
+        <label class="check"><input type="checkbox" data-path="awning.enabled" /> Toldo desplegado</label>
+        <div class="range-field">
+          <span>Altura de anclaje</span>
+          <input type="range" min="1" max="8" step="0.05" data-path="awning.mountHeight" />
+          <input type="number" step="0.05" data-path="awning.mountHeight" /><em>m</em>
+        </div>
+        <div class="range-field">
+          <span>Ángulo bajo la horizontal</span>
+          <input type="range" min="0" max="90" step="1" data-path="awning.angle" />
+          <input type="number" step="1" data-path="awning.angle" /><em>°</em>
+        </div>
+        <div class="range-field">
+          <span>Longitud desplegada</span>
+          <input type="range" min="0" max="6" step="0.05" data-path="awning.length" />
+          <input type="number" step="0.05" data-path="awning.length" /><em>m</em>
+        </div>
+        <div class="range-field">
+          <span>Ancho del toldo</span>
+          <input type="range" min="0.5" max="12" step="0.1" data-path="awning.width" />
+          <input type="number" step="0.1" data-path="awning.width" /><em>m</em>
+        </div>
+        <div class="range-field">
+          <span>Transmitancia de la tela</span>
+          <input type="range" min="0" max="0.5" step="0.01" data-path="awning.transmittance" />
+          <input type="number" step="0.01" data-path="awning.transmittance" /><em></em>
+        </div>
+        <p class="hint" id="awning-geo"></p>
+      </details>
+
+      <details open>
+        <summary>En este instante</summary>
+        <dl class="instant" id="instant"></dl>
+      </details>
+    </aside>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
